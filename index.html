@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>OneEye 作品集</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="canvas"></canvas>
+  <div id="video-layer"></div>
+  <canvas id="overlay"></canvas>
+</div>
+
+<div id="empty" hidden>
+  <div class="empty-title">OneEye</div>
+  <div class="empty-sub">畫布上還沒有作品</div>
+</div>
+
+<!-- 觀看者控制列 -->
+<div id="hud">
+  <button data-act="zoom-out" title="縮小 (-)">−</button>
+  <span id="zoom-label">100%</span>
+  <button data-act="zoom-in" title="放大 (+)">+</button>
+  <button data-act="fit" title="顯示全部 (0)">⤢</button>
+  <button data-act="back-edit" id="btn-back-edit" hidden title="回到編輯模式">編輯</button>
+</div>
+
+<!-- 管理者工具列（只在 ?edit 時出現） -->
+<div id="toolbar" hidden>
+  <div class="tb-group">
+    <button data-act="folder" id="btn-folder" title="連接網站資料夾，才能匯入與儲存">連接資料夾</button>
+    <button data-act="import" title="選擇檔案匯入（也可直接拖曳到畫布）">匯入</button>
+    <button data-act="save" id="btn-save" title="儲存 (Ctrl+S)">儲存</button>
+    <span id="save-status"></span>
+  </div>
+  <div class="tb-group">
+    <button data-act="undo" title="復原 (Ctrl+Z)">↶</button>
+    <button data-act="redo" title="重做 (Ctrl+Shift+Z)">↷</button>
+  </div>
+  <div class="tb-group">
+    <button data-act="preview" title="切換到觀看者模式預覽">預覽</button>
+    <button data-act="help" title="快捷鍵說明">?</button>
+  </div>
+</div>
+
+  <div id="sel-tools" hidden>
+<span id="sel-count"></span>
+  <button data-act="align-left" title="靠左對齊">⇤ 左</button>
+  <button data-act="align-right" title="靠右對齊">右 ⇥</button>
+  <button data-act="align-top" title="靠上對齊">⤒ 上</button>
+  <button data-act="align-bottom" title="靠下對齊">⤓ 下</button>
+  <button data-act="align-hcenter" title="水平置中">↔ 中</button>
+  <button data-act="align-vcenter" title="垂直置中">↕ 中</button>
+  <button data-act="dist-h" title="水平等距分佈">⋯ 等距</button>
+  <button data-act="dist-v" title="垂直等距分佈">⋮ 等距</button>
+  <button data-act="arrange" title="自動排列成網格">▦ 排列</button>
+  <button data-act="same-h" title="統一高度（以第一個選取的為準）">等高</button>
+  <button data-act="front" title="移到最上層 (Ctrl+])">置頂</button>
+  <button data-act="back" title="移到最下層 (Ctrl+[)">置底</button>
+  <button data-act="reset-rot" title="旋轉歸零">歸零</button>
+  <button data-act="delete" class="danger" title="刪除 (Delete)">刪除</button>
+</div>
+
+<div id="help" hidden>
+  <h3>編輯模式操作</h3>
+  <table>
+    <tr><td>拖曳檔案到畫布</td><td>匯入圖片／影片（可一次多個）</td></tr>
+    <tr><td>點選 / Shift+點選</td><td>選取 / 加選、取消</td></tr>
+    <tr><td>在空白處拖曳</td><td>框選</td></tr>
+    <tr><td>拖曳角落控制點</td><td>等比縮放（Alt：以中心縮放）</td></tr>
+    <tr><td>拖曳上方圓點</td><td>旋轉（Shift：每 15° 吸附）</td></tr>
+    <tr><td>中鍵／右鍵／空白鍵+拖曳</td><td>平移畫面</td></tr>
+    <tr><td>滾輪</td><td>縮放（觸控板雙指為平移，捏合為縮放）</td></tr>
+    <tr><td>方向鍵（Shift 加大）</td><td>微調位置</td></tr>
+    <tr><td>Ctrl+A / Delete</td><td>全選 / 刪除</td></tr>
+    <tr><td>Ctrl+Z / Ctrl+Shift+Z</td><td>復原 / 重做</td></tr>
+    <tr><td>Ctrl+S</td><td>儲存（另有自動儲存）</td></tr>
+    <tr><td>0 / F</td><td>顯示全部 / 聚焦選取</td></tr>
+    <tr><td>雙擊影片</td><td>播放 / 暫停</td></tr>
+  </table>
+  <button data-act="help">關閉</button>
+</div>
+
+<div id="drop-hint" hidden><div>放開以匯入到畫布</div></div>
+<div id="progress" hidden><div id="progress-text"></div><div class="bar"><div id="progress-bar"></div></div></div>
+<div id="toast"></div>
+<input type="file" id="file-input" multiple accept="image/*,video/*" hidden>
+
+<script src="data/canvas-data.js"></script>
+<script src="js/util.js"></script>
+<script src="js/store.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/video.js"></script>
+<script src="js/importer.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
