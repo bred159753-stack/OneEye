@@ -13,6 +13,11 @@
   let spaceDown = false;
   let inertia = 0;
 
+  console.info('OneEye v5');
+  // 任何未預期的錯誤都顯示出來，避免「沒反應」
+  window.addEventListener('error', (e) => OE.util.toast('發生錯誤：' + e.message, 8000));
+  window.addEventListener('unhandledrejection', (e) => OE.util.toast('發生錯誤：' + (e.reason && e.reason.message ? e.reason.message : e.reason), 8000));
+
   OE.store.load();
   R.init();
   OE.video.init();
@@ -161,13 +166,15 @@
     const w = R.toWorld(p.x, p.y);
     const it = R.pick(w.x, w.y);
     if (!it) return;
-    if (it.type === 'video' && OE.editor.active) OE.video.toggle(it.id);
+    if (it.type === 'frame') OE.editor.renameFrame(it);
+    else if (it.type === 'text' && OE.editor.active) OE.editor.editText(it);
+    else if (it.type === 'video' && OE.editor.active) OE.video.toggle(it.id);
     else if (it.type === 'image') R.fitBounds(OE.util.itemAABB(it), true, 0.04);
   });
 
   // ---- 鍵盤 ----
   window.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     if (e.code === 'Space') { spaceDown = true; if (OE.editor.active) e.preventDefault(); return; }
     if (OE.editor.active && OE.editor.keyDown(e)) { e.preventDefault(); return; }
     const W = R.width / 2, H = R.height / 2;

@@ -5,8 +5,8 @@
   const LEVELS = [2048, 1024, 256, 64];        // 由大到小產生，每層由上一層縮小而來
   const IMAGE_EXT = /^(jpe?g|png|gif|webp|avif|bmp|svg|ico|jfif)$/;
   const VIDEO_EXT = /^(mp4|webm|mov|m4v|ogv|ogg)$/;
-  const MAX_WORLD_SIDE = 1600;                  // 匯入時的預設最大顯示尺寸
-  const CONCURRENCY = 3;
+  const MAX_WORLD_SIDE = 1000;                  // 匯入時的預設最大顯示尺寸
+  const CONCURRENCY = 2;
 
   function extOf(name) {
     const m = /\.([^.]+)$/.exec(name || '');
@@ -107,7 +107,8 @@
 
   function toBlob(canvas) {
     return new Promise((resolve, reject) => {
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('無法產生縮圖'))), 'image/webp', 0.85);
+      const t = setTimeout(() => reject(new Error('產生縮圖逾時')), 20000);
+      canvas.toBlob((b) => { clearTimeout(t); b ? resolve(b) : reject(new Error('無法產生縮圖')); }, 'image/webp', 0.85);
     });
   }
 
@@ -148,13 +149,18 @@
       const k = L / maxSide;
       const tw = Math.max(1, Math.round(nw * k)), th = Math.max(1, Math.round(nh * k));
       const c = downscale(prev, pw, ph, tw, th);
-      const blob = await toBlob(c);
-      const p = 'assets/lod/' + id + '_' + L + '.webp';
-      await OE.store.writeFile(p, blob);
-      OE.store.blobUrls.set(p, URL.createObjectURL(blob));
-      lods.push({ s: L, p });
       prev = c; pw = tw; ph = th;
       smallest = c;
+      // 縮圖失敗不影響匯入，最多只是少一個層級（會改用其他層級或原圖）
+      try {
+        const blob = await toBlob(c);
+        const p = 'assets/lod/' + id + '_' + L + '.webp';
+        await OE.store.writeFile(p, blob);
+        OE.store.blobUrls.set(p, URL.createObjectURL(blob));
+        lods.push({ s: L, p });
+      } catch (e) {
+        console.warn('縮圖產生失敗', file.name, L, e);
+      }
     }
     const color = averageColor(smallest || source);
     if (source.close) source.close();
@@ -218,42 +224,66 @@
     const progress = document.getElementById('progress');
     const ptext = document.getElementById('progress-text');
     const pbar = document.getElementById('progress-bar');
+    const pclose = document.getElementById('progress-close');
+    pclose.hidden = true;
     progress.hidden = false;
     let done = 0;
-    const results = new Array(files.length);
+    const created = [];
     const errors = [];
     const report = () => {
-      ptext.textContent = `匯入中 ${done} / ${files.length}（產生縮圖）`;
+      ptext.textContent = `匯入中 ${done} / ${files.length}（複製檔案並產生縮圖）`;
       pbar.style.width = (done / files.length) * 100 + '%';
     };
     report();
+
+    // 先排成網格，每完成一張就立刻出現在畫布上；全部完成後再緊密排列
+    const CELL = MAX_WORLD_SIDE * 1.1;
+    const cols = Math.ceil(Math.sqrt(files.length * 1.4));
+    const rows = Math.ceil(files.length / cols);
+    const slot = (i) => ({
+      x: cx + ((i % cols) - (cols - 1) / 2) * CELL,
+      y: cy + (Math.floor(i / cols) - (rows - 1) / 2) * CELL,
+    });
+    OE.editor.beginImport();
+    // 鏡頭先移到即將放置的區域，讓使用者看到圖片一張張出現
+    const a = slot(0), z = slot(files.length - 1);
+    OE.renderer.fitBounds({ minX: a.x - CELL / 2, minY: a.y - CELL / 2, maxX: Math.max(z.x, a.x + (cols - 1) * CELL) + CELL / 2, maxY: z.y + CELL / 2 });
 
     let next = 0;
     const worker = async () => {
       while (next < files.length) {
         const i = next++;
         try {
-          results[i] = await importOne(files[i]);
+          const it = await importOne(files[i]);
+          Object.assign(it, slot(i));
+          it._order = i;
+          created.push(it);
+          OE.editor.appendImported(it);
         } catch (e) {
           console.error(files[i].name, e);
-          errors.push(files[i].name + '：' + e.message);
+          errors.push(files[i].name + '：' + (e && e.message ? e.message : e));
         }
         done++;
         report();
       }
     };
     await Promise.all(Array.from({ length: CONCURRENCY }, worker));
-    progress.hidden = true;
 
-    const created = results.filter(Boolean);
+    created.sort((a, b) => a._order - b._order);
     if (created.length) {
       shelfLayout(created, cx, cy);
-      OE.editor.addItems(created);
+      OE.editor.endImport(created);
     }
     let msg = `已匯入 ${created.length} 個檔案`;
-    if (errors.length) msg += `，${errors.length} 個失敗（${errors[0]}${errors.length > 1 ? ' 等' : ''}）`;
     if (skipped) msg += `，略過 ${skipped} 個不支援的檔案`;
-    OE.util.toast(msg, errors.length ? 6000 : 2500);
+    if (errors.length) {
+      // 有錯誤時保留面板，讓使用者看得到原因
+      ptext.textContent = msg + `，${errors.length} 個失敗：\n` + errors.slice(0, 8).join('\n') + (errors.length > 8 ? '\n…' : '');
+      pclose.hidden = false;
+    } else {
+      progress.hidden = true;
+      OE.util.toast(msg, 2500);
+    }
     return created;
   }
 

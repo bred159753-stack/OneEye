@@ -42,6 +42,28 @@ window.OE = window.OE || {};
       return { x: dx * c - dy * s, y: dx * s + dy * c };
     },
 
+    // 文字物件：依內容與字級計算寬高
+    TEXT_FONT: '"Segoe UI", "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif',
+    TEXT_LINE: 1.25,
+    measureText(it) {
+      const g = OE.util._mctx || (OE.util._mctx = document.createElement('canvas').getContext('2d'));
+      g.font = `${it.weight || 400} ${it.fs}px ${OE.util.TEXT_FONT}`;
+      const lines = String(it.text || ' ').split('\n');
+      let w = 0;
+      for (const l of lines) w = Math.max(w, g.measureText(l || ' ').width);
+      it.w = Math.max(it.fs * 0.5, w);
+      it.h = lines.length * it.fs * OE.util.TEXT_LINE;
+    },
+
+    drawText(g, it) {
+      g.font = `${it.weight || 400} ${it.fs}px ${OE.util.TEXT_FONT}`;
+      g.fillStyle = it.color || '#ffffff';
+      g.textBaseline = 'middle';
+      g.textAlign = 'left';
+      const lh = it.fs * OE.util.TEXT_LINE;
+      String(it.text || '').split('\n').forEach((l, i) => g.fillText(l, -it.w / 2, -it.h / 2 + lh * (i + 0.5)));
+    },
+
     hitItem(it, wx, wy) {
       const p = OE.util.toLocal(it, wx, wy);
       return Math.abs(p.x) <= it.w / 2 && Math.abs(p.y) <= it.h / 2;

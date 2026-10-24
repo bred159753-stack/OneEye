@@ -111,15 +111,44 @@
       }
     },
 
-    async writeFile(path, blob) {
+    // 所有寫入排成一列依序執行，並加上逾時與重試。
+    // （Windows 上同時對同一資料夾開多個寫入，或防毒軟體掃描剛建立的檔案時，可能會卡住或失敗）
+    writeFile(path, blob) {
+      const run = () => this._writeWithRetry(path, blob);
+      const p = (this._writeQueue || Promise.resolve()).then(run, run);
+      this._writeQueue = p.catch(() => {});
+      return p;
+    },
+
+    async _writeWithRetry(path, blob) {
+      let lastErr;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          await withTimeout(this._writeOnce(path, blob), 60000 + (blob.size || 0) / 1000, '寫入檔案逾時：' + path);
+          return;
+        } catch (e) {
+          lastErr = e;
+          console.warn('寫入失敗，重試', attempt + 1, path, e);
+          await new Promise((r) => setTimeout(r, 300 * Math.pow(2, attempt)));
+        }
+      }
+      throw lastErr;
+    },
+
+    async _writeOnce(path, blob) {
       if (!this.dir) throw new Error('尚未連接資料夾');
       const parts = path.split('/');
       let d = this.dir;
       for (let i = 0; i < parts.length - 1; i++) d = await d.getDirectoryHandle(parts[i], { create: true });
       const fh = await d.getFileHandle(parts[parts.length - 1], { create: true });
       const w = await fh.createWritable();
-      await w.write(blob);
-      await w.close();
+      try {
+        await w.write(blob);
+        await w.close();
+      } catch (e) {
+        try { await w.abort(); } catch (e2) { /* ignore */ }
+        throw e;
+      }
     },
 
     async save() {
@@ -131,7 +160,31 @@
     },
   };
 
+  function withTimeout(promise, ms, msg) {
+    let t;
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => { t = setTimeout(() => reject(new Error(msg)), ms); }),
+    ]).finally(() => clearTimeout(t));
+  }
+
   function normalize(it) {
+    if (it && it.type === 'frame') {
+      return {
+        id: String(it.id || OE.util.uid()), type: 'frame',
+        x: +it.x || 0, y: +it.y || 0, w: +it.w || 100, h: +it.h || 100, rot: 0,
+        name: it.name || '框線', color: it.color || '#ffb84c',
+      };
+    }
+    if (it && it.type === 'text') {
+      const t = {
+        id: String(it.id || OE.util.uid()), type: 'text',
+        x: +it.x || 0, y: +it.y || 0, rot: +it.rot || 0,
+        text: String(it.text || ''), fs: +it.fs || 48, color: it.color || '#ffffff', weight: +it.weight || 400,
+        w: +it.w || 100, h: +it.h || 60,
+      };
+      return t;
+    }
     if (!it || !it.src) return null;
     return {
       id: String(it.id || OE.util.uid()),

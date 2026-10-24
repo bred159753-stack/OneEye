@@ -36,6 +36,10 @@
     <span id="save-status"></span>
   </div>
   <div class="tb-group">
+    <button data-act="text" id="btn-text" title="文字 (T)：點畫布輸入文字，雙擊文字可再編輯"><b>T</b> 文字</button>
+    <button data-act="frame" id="btn-frame" title="框線 (R)：拖曳拉出一個區域；有選取作品時直接包住選取範圍">▭ 框線</button>
+  </div>
+  <div class="tb-group">
     <button data-act="undo" title="復原 (Ctrl+Z)">↶</button>
     <button data-act="redo" title="重做 (Ctrl+Shift+Z)">↷</button>
   </div>
@@ -45,22 +49,42 @@
   </div>
 </div>
 
-  <div id="sel-tools" hidden>
-<span id="sel-count"></span>
-  <button data-act="align-left" title="靠左對齊">⇤ 左</button>
-  <button data-act="align-right" title="靠右對齊">右 ⇥</button>
-  <button data-act="align-top" title="靠上對齊">⤒ 上</button>
-  <button data-act="align-bottom" title="靠下對齊">⤓ 下</button>
-  <button data-act="align-hcenter" title="水平置中">↔ 中</button>
-  <button data-act="align-vcenter" title="垂直置中">↕ 中</button>
-  <button data-act="dist-h" title="水平等距分佈">⋯ 等距</button>
-  <button data-act="dist-v" title="垂直等距分佈">⋮ 等距</button>
+<div id="sel-tools" hidden>
+  <span id="sel-count"></span>
+  <div class="dropdown">
+    <button data-act="align-menu" title="對齊（對齊後會自動推開，不會重疊）">對齊 ▾</button>
+    <div id="align-menu" class="menu" hidden>
+      <button data-act="align-left">⇤ 靠左</button>
+      <button data-act="align-right">⇥ 靠右</button>
+      <button data-act="align-top">⤒ 靠上</button>
+      <button data-act="align-bottom">⤓ 靠下</button>
+    </div>
+  </div>
+  <label class="gap-field" title="橫向間距（同一列相鄰作品的距離）；顯示 ? 代表間距不一致，輸入數值可統一">↔<input id="gap-h" type="number" step="1" inputmode="numeric"></label>
+  <label class="gap-field" title="直向間距（上下相鄰兩列的距離）；顯示 ? 代表間距不一致，輸入數值可統一">↕<input id="gap-v" type="number" step="1" inputmode="numeric"></label>
+  <label class="gap-field" id="text-color-field" hidden title="文字顏色">T 顏色<input type="color" id="text-color" value="#ffffff"></label>
   <button data-act="arrange" title="自動排列成網格">▦ 排列</button>
   <button data-act="same-h" title="統一高度（以第一個選取的為準）">等高</button>
+  <button data-act="duplicate" title="複製一份 (Ctrl+D；也可 Ctrl+C / Ctrl+V)">複製</button>
   <button data-act="front" title="移到最上層 (Ctrl+])">置頂</button>
   <button data-act="back" title="移到最下層 (Ctrl+[)">置底</button>
   <button data-act="reset-rot" title="旋轉歸零">歸零</button>
+  <button data-act="export" id="btn-export" title="把選取的框線範圍輸出成 PNG">輸出框線</button>
   <button data-act="delete" class="danger" title="刪除 (Delete)">刪除</button>
+</div>
+
+<div id="export-panel" hidden>
+  <h3>輸出框線</h3>
+  <div id="export-info"></div>
+  <div class="row"><span>背景</span>
+    <label><input type="radio" name="ex-bg" value="color" checked> 顏色 <input type="color" id="ex-color" value="#ffffff"></label>
+    <label><input type="radio" name="ex-bg" value="transparent"> 透明（PNG alpha）</label>
+  </div>
+  <div class="row"><span>倍率</span>
+    <select id="ex-scale"><option value="1">1x</option><option value="2" selected>2x</option><option value="3">3x</option><option value="4">4x</option></select>
+    <span id="ex-size" class="muted"></span>
+  </div>
+  <div class="actions"><button id="ex-cancel">取消</button><button id="ex-go" class="primary">輸出 PNG</button></div>
 </div>
 
 <div id="help" hidden>
@@ -74,9 +98,17 @@
     <tr><td>中鍵／右鍵／空白鍵+拖曳</td><td>平移畫面</td></tr>
     <tr><td>滾輪</td><td>縮放（觸控板雙指為平移，捏合為縮放）</td></tr>
     <tr><td>方向鍵（Shift 加大）</td><td>微調位置</td></tr>
+    <tr><td>Ctrl+方向鍵</td><td>往該方向對齊（不重疊）</td></tr>
     <tr><td>Ctrl+A / Delete</td><td>全選 / 刪除</td></tr>
     <tr><td>Ctrl+Z / Ctrl+Shift+Z</td><td>復原 / 重做</td></tr>
     <tr><td>Ctrl+S</td><td>儲存（另有自動儲存）</td></tr>
+    <tr><td>T 或「T 文字」</td><td>在畫布上點一下輸入文字；Ctrl+Enter 或點別處完成</td></tr>
+    <tr><td>雙擊文字 / Enter</td><td>重新編輯文字；底部「T 顏色」改顏色，拖角落改大小</td></tr>
+    <tr><td>R 或「框線」</td><td>拖曳拉出框線；有選取作品時直接包住選取範圍</td></tr>
+    <tr><td>拖曳框線角落</td><td>自由調整框線大小（Shift 維持比例）</td></tr>
+    <tr><td>點框線邊緣 / 名稱</td><td>選取框線（雙擊可改名）</td></tr>
+    <tr><td>Ctrl+D / Ctrl+C / Ctrl+V</td><td>複製 / 拷貝 / 貼上（貼在滑鼠位置）</td></tr>
+    <tr><td>↔ ↕ 欄位</td><td>顯示目前間距，? 表示不一致；輸入數值套用</td></tr>
     <tr><td>0 / F</td><td>顯示全部 / 聚焦選取</td></tr>
     <tr><td>雙擊影片</td><td>播放 / 暫停</td></tr>
   </table>
@@ -84,17 +116,18 @@
 </div>
 
 <div id="drop-hint" hidden><div>放開以匯入到畫布</div></div>
-<div id="progress" hidden><div id="progress-text"></div><div class="bar"><div id="progress-bar"></div></div></div>
+<div id="progress" hidden><div id="progress-text"></div><button id="progress-close" hidden onclick="this.parentNode.hidden=true">關閉</button><div class="bar"><div id="progress-bar"></div></div></div>
 <div id="toast"></div>
 <input type="file" id="file-input" multiple accept="image/*,video/*" hidden>
 
 <script src="data/canvas-data.js"></script>
-<script src="js/util.js"></script>
-<script src="js/store.js"></script>
-<script src="js/renderer.js"></script>
-<script src="js/video.js"></script>
-<script src="js/importer.js"></script>
-<script src="js/editor.js"></script>
-<script src="js/main.js"></script>
+<script src="js/util.js?v=5"></script>
+<script src="js/store.js?v=5"></script>
+<script src="js/renderer.js?v=5"></script>
+<script src="js/video.js?v=5"></script>
+<script src="js/importer.js?v=5"></script>
+<script src="js/editor.js?v=5"></script>
+<script src="js/exporter.js?v=5"></script>
+<script src="js/main.js?v=5"></script>
 </body>
 </html>

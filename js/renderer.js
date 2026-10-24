@@ -219,6 +219,33 @@
     ctx.fill();
   }
 
+  function drawFrames(frames, s, cw, ch) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.font = `${12 * dpr}px "Segoe UI", "Microsoft JhengHei", sans-serif`;
+    ctx.textBaseline = 'bottom';
+    for (const f of frames) {
+      const x = (f.x - f.w / 2 - cam.x) * s + cw / 2, y = (f.y - f.h / 2 - cam.y) * s + ch / 2;
+      ctx.strokeStyle = f.color || '#ffb84c';
+      ctx.lineWidth = 1.5 * dpr;
+      ctx.setLineDash([6 * dpr, 4 * dpr]);
+      ctx.strokeRect(x, y, f.w * s, f.h * s);
+      ctx.setLineDash([]);
+      ctx.fillStyle = f.color || '#ffb84c';
+      const label = (f.name || '框線') + '  ' + Math.round(f.w) + '×' + Math.round(f.h);
+      ctx.fillText(label, x, y - 3 * dpr);
+    }
+  }
+
+  // 框線只有邊框與名稱標籤可以點選，內部可以穿透點到圖片或開始框選
+  function hitFrame(f, wx, wy) {
+    const tol = 6 / cam.s;
+    const minX = f.x - f.w / 2, minY = f.y - f.h / 2, maxX = f.x + f.w / 2, maxY = f.y + f.h / 2;
+    if (wx >= minX && wx <= minX + 180 / cam.s && wy >= minY - 18 / cam.s && wy <= minY) return true;
+    const inOuter = wx >= minX - tol && wx <= maxX + tol && wy >= minY - tol && wy <= maxY + tol;
+    const inInner = wx > minX + tol && wx < maxX - tol && wy > minY + tol && wy < maxY - tol;
+    return inOuter && !inInner;
+  }
+
   const stats = { drawMs: 0, visible: 0, drawnImages: 0, colorBlocks: 0, cached: 0, memMB: 0 };
 
   function draw() {
@@ -242,8 +269,25 @@
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = cam.s < 1 ? 'medium' : 'high';
 
+    const frames = [];
     for (const i of vis) {
       const it = items[i];
+      if (it.type === 'frame') { frames.push(it); continue; }
+      if (it.type === 'text') {
+        if (it._editing) continue;
+        const cos = Math.cos(it.rot) * s, sin = Math.sin(it.rot) * s;
+        ctx.setTransform(cos, sin, -sin, cos, (it.x - cam.x) * s + cw / 2, (it.y - cam.y) * s + ch / 2);
+        if (it.fs * s < 3) {
+          // 太小看不清楚時畫成淡色條，省效能
+          ctx.globalAlpha = 0.35;
+          ctx.fillStyle = it.color;
+          ctx.fillRect(-it.w / 2, -it.h / 4, it.w, it.h / 2);
+          ctx.globalAlpha = 1;
+        } else {
+          OE.util.drawText(ctx, it);
+        }
+        continue;
+      }
       const px = Math.max(it.w, it.h) * s;
       if (px < tiny && it.rot === 0) {
         // 未旋轉的小色塊直接用螢幕座標畫，省去 setTransform
@@ -278,6 +322,9 @@
       }
       if (it.type === 'video' && px > 48 && !(OE.video && OE.video.isPlaying(it.id))) drawPlayBadge(it, s);
     }
+
+    // 框線只在編輯模式顯示，畫在所有圖片之上
+    if (frames.length && OE.editor && OE.editor.active) drawFrames(frames, s, cw, ch);
 
     // 越靠近畫面中心的越優先載入
     need.sort((a, b) => a.d - b.d);
@@ -355,17 +402,26 @@
   }
 
   function fitAll(animate = true) {
-    fitBounds(OE.util.unionAABB(OE.store.items), animate);
+    const editing = OE.editor && OE.editor.active;
+    const list = editing ? OE.store.items : OE.store.items.filter((it) => it.type !== 'frame');
+    fitBounds(OE.util.unionAABB(list.length ? list : OE.store.items), animate);
   }
 
-  // 由上往下找出點到的物件
+  // 由上往下找出點到的物件（編輯模式下框線優先）
   function pick(wx, wy) {
     const items = OE.store.items;
-    const r = 1 / cam.s;
+    const r = 200 / cam.s;
     const list = query(wx - r, wy - r, wx + r, wy + r);
+    const editing = OE.editor && OE.editor.active;
+    if (editing) {
+      for (let k = list.length - 1; k >= 0; k--) {
+        const it = items[list[k]];
+        if (it.type === 'frame' && hitFrame(it, wx, wy)) return it;
+      }
+    }
     for (let k = list.length - 1; k >= 0; k--) {
       const it = items[list[k]];
-      if (OE.util.hitItem(it, wx, wy)) return it;
+      if (it.type !== 'frame' && OE.util.hitItem(it, wx, wy)) return it;
     }
     return null;
   }
